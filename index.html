@@ -1,21 +1,32 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Secure Private Chat</title><script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script><style>
-body{font-family:Arial;background:#f4f6f8;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
-.chat-box{width:100%;max-width:420px;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.1);display:flex;flex-direction:column}
-.header{background:#EC0043;color:#fff;padding:12px;text-align:center;font-weight:bold;font-size:14px;border-radius:10px 10px 0 0}
-.messages{flex:1;padding:10px;overflow-y:auto;font-size:14px}
-.msg{margin-bottom:8px;padding:8px 12px;border-radius:8px;max-width:80%}
-.me{background:#EC0043;color:#fff;margin-left:auto}
-.other{background:#eee}
-.status{font-size:11px;color:#666;padding:4px 10px}
+<title>Modern Secure Private Chat</title>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0;display:flex;justify-content:center;align-items:center;height:100vh}
+.chat-box{width:100%;max-width:420px;background:#fff;border-radius:12px;box-shadow:0 15px 30px rgba(0,0,0,.15);display:flex;flex-direction:column;overflow:hidden;}
+.header{background:#EC0043;color:#fff;padding:15px;text-align:center;font-weight:bold;font-size:16px;position:sticky;top:0;z-index:2}
+.messages{flex:1;padding:10px;overflow-y:auto;display:flex;flex-direction:column-reverse;scroll-behavior:smooth;}
+.msg{margin:6px 0;padding:10px 14px;border-radius:18px;max-width:75%;font-size:14px;position:relative;word-wrap:break-word;display:flex;flex-direction:column;}
+.me{background:#EC0043;color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+.other{background:#eee;color:#000;margin-right:auto;border-bottom-left-radius:4px}
+.time{font-size:10px;color:rgba(255,255,255,0.7);align-self:flex-end;margin-top:2px}
+.double-tick{width:14px;height:14px;display:inline-block;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" fill="%23fff" viewBox="0 0 24 24"><path d="M1.5 13l4 4 10-10-1.5-1.5-8.5 8.5-2.5-2.5L1.5 13zm9 0l4 4 10-10-1.5-1.5-8.5 8.5-2.5-2.5-1.5 1.5z"/></svg>') no-repeat center/contain;margin-left:2px;opacity:0.6}
+.status{font-size:12px;color:#666;padding:4px 10px;text-align:left}
 .input-box{display:flex;border-top:1px solid #ddd}
-input{flex:1;padding:12px;border:none;outline:none}
-button{background:#EC0043;color:#fff;border:none;padding:0 18px;cursor:pointer}
-</style></head>
-<body><div class="chat-box">
+input{flex:1;padding:12px;border:none;outline:none;border-radius:0}
+button{background:#EC0043;color:#fff;border:none;padding:0 20px;cursor:pointer;border-radius:0}
+</style>
+</head>
+<body>
+
+<div class="chat-box">
   <div class="header" id="title">Private Chat</div>
   <div class="messages" id="messages"></div>
   <div class="status" id="status"></div>
@@ -23,7 +34,9 @@ button{background:#EC0043;color:#fff;border:none;padding:0 18px;cursor:pointer}
     <input id="msg" placeholder="Type message..." oninput="typing(true)">
     <button onclick="sendMsg()">Send</button>
   </div>
-</div><script>
+</div>
+
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyCXZLGPwvqCN4OeZCjwBQan63pbASeSw8Y",
   authDomain: "chat-c504f.firebaseapp.com",
@@ -39,19 +52,21 @@ const db=firebase.database();
 
 const params=new URLSearchParams(location.search);
 let room=params.get('room');
-
 if(!room){
  room=Math.random().toString(36).substring(2,8);
  const pass=prompt('Set room password');
  db.ref('rooms/'+room).set({password:pass,users:0});
- alert('Share this link:\n'+location.origin+location.pathname+'?room='+room);
+ const shareLink=location.origin+location.pathname+'?room='+room;
+ navigator.clipboard.writeText(shareLink).then(()=>{
+   alert('Private link generated & copied to clipboard:\n'+shareLink);
+ }).catch(()=>{
+   alert('Private link generated:\n'+shareLink+'\n(Manual copy needed)');
+ });
  history.replaceState({},'',`?room=${room}`);
 }
-
 const roomRef=db.ref('rooms/'+room);
 const chatRef=db.ref('messages/'+room);
 const typingRef=db.ref('typing/'+room);
-
 let username=localStorage.getItem('chat_name')||prompt('Your name');
 localStorage.setItem('chat_name',username);
 
@@ -63,7 +78,6 @@ roomRef.once('value',snap=>{
  if(data.users>=2) return alert('Room full'),location.reload();
  roomRef.update({users:(data.users||0)+1});
 });
-
 window.addEventListener('beforeunload',()=>{
  roomRef.once('value',s=>{if(s.exists()) roomRef.update({users:Math.max(0,(s.val().users||1)-1)})});
 });
@@ -71,7 +85,8 @@ window.addEventListener('beforeunload',()=>{
 function sendMsg(){
  const msg=document.getElementById('msg').value;
  if(!msg.trim()) return;
- chatRef.push({name:username,text:msg,time:Date.now(),seen:false});
+ const msgData={name:username,text:msg,time:Date.now(),seen:false};
+ const msgRef=chatRef.push(msgData);
  document.getElementById('msg').value='';
  typing(false);
 }
@@ -80,23 +95,31 @@ chatRef.limitToLast(100).on('child_added',snap=>{
  const d=snap.val();
  const div=document.createElement('div');
  div.className='msg '+(d.name===username?'me':'other');
- div.textContent=d.name+': '+d.text;
- document.getElementById('messages').appendChild(div);
+ div.innerHTML=`<span>${d.name}: ${d.text}</span>`;
+ const timeSpan=document.createElement('span');
+ timeSpan.className='time';
+ const date=new Date(d.time);
+ timeSpan.textContent = date.getHours().toString().padStart(2,'0')+':'+date.getMinutes().toString().padStart(2,'0');
+ div.appendChild(timeSpan);
+ if(d.name===username){
+   const tick=document.createElement('span');
+   tick.className='double-tick';
+   if(d.seen) tick.style.opacity='1';
+   div.appendChild(tick);
+ }
+ document.getElementById('messages').prepend(div);
  snap.ref.update({seen:true});
 });
 
 function typing(val){ typingRef.set(val?username:null); }
-
 typingRef.on('value',s=>{
  document.getElementById('status').textContent=s.val()?s.val()+' typing...':'';
 });
 
-// ⏳ Auto delete after 24 hours
+// Auto delete 24h
 chatRef.once('value',snap=>{
- snap.forEach(c=>{
-  if(Date.now()-c.val().time>86400000) c.ref.remove();
- });
+ snap.forEach(c=>{if(Date.now()-c.val().time>86400000) c.ref.remove();});
 });
-
-</script></body>
+</script>
+</body>
 </html>
