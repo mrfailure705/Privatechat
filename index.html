@@ -37,9 +37,6 @@ body{
   padding:15px;
   text-align:center;
   font-weight:bold;
-  font-size:16px;
-  position:sticky;
-  top:0;
 }
 
 .share-box{
@@ -47,12 +44,6 @@ body{
   background:#fff4f7;
   border-bottom:1px solid #eee;
   display:none;
-}
-
-.share-box small{
-  display:block;
-  font-weight:bold;
-  margin-bottom:6px;
 }
 
 .share-row{
@@ -74,13 +65,6 @@ body{
   border:none;
   padding:8px 14px;
   border-radius:6px;
-  cursor:pointer;
-}
-
-#copyStatus{
-  font-size:11px;
-  color:green;
-  margin-top:4px;
 }
 
 .messages{
@@ -96,28 +80,15 @@ body{
   padding:10px 14px;
   border-radius:18px;
   max-width:75%;
-  font-size:14px;
 }
 
-.me{
-  background:#EC0043;
-  color:#fff;
-  margin-left:auto;
-  border-bottom-right-radius:4px;
-}
-
-.other{
-  background:#eee;
-  color:#000;
-  margin-right:auto;
-  border-bottom-left-radius:4px;
-}
+.me{background:#EC0043;color:#fff;margin-left:auto}
+.other{background:#eee;color:#000;margin-right:auto}
 
 .time{
   font-size:10px;
-  opacity:0.7;
+  opacity:.7;
   text-align:right;
-  margin-top:4px;
 }
 
 .status{
@@ -143,7 +114,6 @@ body{
   color:#fff;
   border:none;
   padding:0 20px;
-  cursor:pointer;
 }
 </style>
 </head>
@@ -153,14 +123,11 @@ body{
 <div class="chat-box">
   <div class="header">Private Chat</div>
 
-  <!-- SHARE LINK BOX -->
   <div class="share-box" id="shareBox">
-    <small>🔐 Private Room Link</small>
     <div class="share-row">
       <input id="shareLink" readonly>
       <button onclick="copyLink()">Copy</button>
     </div>
-    <div id="copyStatus"></div>
   </div>
 
   <div class="messages" id="messages"></div>
@@ -200,54 +167,61 @@ let room = params.get('room');
 if(!room){
   room = Math.random().toString(36).substring(2,8);
   const pass = prompt('Set room password');
-  db.ref('rooms/'+room).set({password:pass,users:0});
+  db.ref('rooms/'+room).set({password:pass});
 
   const link = location.origin + location.pathname + '?room=' + room;
-  document.getElementById('shareBox').style.display = 'block';
-  document.getElementById('shareLink').value = link;
-
+  document.getElementById('shareBox').style.display='block';
+  document.getElementById('shareLink').value=link;
   history.replaceState({},'',`?room=${room}`);
 }
 
-const roomRef = db.ref('rooms/'+room);
 const chatRef = db.ref('messages/'+room);
 const typingRef = db.ref('typing/'+room);
 
-roomRef.once('value',snap=>{
-  if(!snap.exists()) return alert('Room not found');
-  const data = snap.val();
-  const entered = prompt('Enter room password');
-  if(entered !== data.password) return location.reload();
-  if(data.users >= 2) return alert('Room full'), location.reload();
-  roomRef.update({users:(data.users||0)+1});
+/* 🔥 PRESENCE + LAST SEEN */
+const presenceRef = db.ref('presence/'+room+'/'+username);
+const connectedRef = db.ref('.info/connected');
+
+connectedRef.on('value',snap=>{
+  if(snap.val()){
+    presenceRef.set({
+      state:'online',
+      lastSeen:firebase.database.ServerValue.TIMESTAMP
+    });
+    presenceRef.onDisconnect().set({
+      state:'offline',
+      lastSeen:firebase.database.ServerValue.TIMESTAMP
+    });
+  }
 });
 
-window.addEventListener('beforeunload',()=>{
-  roomRef.once('value',s=>{
-    if(s.exists())
-      roomRef.update({users:Math.max(0,(s.val().users||1)-1)});
+/* SHOW STATUS */
+db.ref('presence/'+room).on('value',snap=>{
+  const users = snap.val() || {};
+  Object.keys(users).forEach(u=>{
+    if(u!==username){
+      const d = users[u];
+      if(d.state==='online'){
+        status.innerText = u + ' is online';
+      }else{
+        const mins = Math.floor((Date.now()-d.lastSeen)/60000);
+        status.innerText = 'Last seen ' + (mins<1?'just now':mins+' min ago');
+      }
+    }
   });
 });
 
-/* COPY FUNCTION */
+/* COPY */
 function copyLink(){
-  const input = document.getElementById('shareLink');
-  input.select();
-  input.setSelectionRange(0,99999);
+  shareLink.select();
   document.execCommand("copy");
-  document.getElementById('copyStatus').innerText = "Link copied ✔";
 }
 
 /* CHAT */
 function sendMsg(){
-  const input = document.getElementById('msg');
-  if(!input.value.trim()) return;
-  chatRef.push({
-    name:username,
-    text:input.value,
-    time:Date.now()
-  });
-  input.value='';
+  if(!msg.value.trim()) return;
+  chatRef.push({name:username,text:msg.value,time:Date.now()});
+  msg.value='';
   typing(false);
 }
 
@@ -257,7 +231,7 @@ chatRef.limitToLast(100).on('child_added',snap=>{
   div.className='msg '+(d.name===username?'me':'other');
   div.innerHTML=`<b>${d.name}</b><br>${d.text}
     <div class="time">${new Date(d.time).toLocaleTimeString()}</div>`;
-  document.getElementById('messages').appendChild(div);
+  messages.appendChild(div);
   div.scrollIntoView({behavior:'smooth'});
 });
 
@@ -266,8 +240,7 @@ function typing(val){
 }
 
 typingRef.on('value',s=>{
-  document.getElementById('status').textContent =
-    s.val()?s.val()+" typing...":"";
+  if(s.val()) status.innerText = s.val()+" typing...";
 });
 </script>
 
