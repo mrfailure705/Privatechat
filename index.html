@@ -15,7 +15,7 @@ body{
   margin:0;
   display:flex;
   justify-content:center;
-  align-items:flex-start;   /* ✅ top se start */
+  align-items:flex-start;
   padding-top:20px;
   height:100vh;
 }
@@ -40,7 +40,47 @@ body{
   font-size:16px;
   position:sticky;
   top:0;
-  z-index:2;
+}
+
+.share-box{
+  padding:12px;
+  background:#fff4f7;
+  border-bottom:1px solid #eee;
+  display:none;
+}
+
+.share-box small{
+  display:block;
+  font-weight:bold;
+  margin-bottom:6px;
+}
+
+.share-row{
+  display:flex;
+  gap:6px;
+}
+
+.share-row input{
+  flex:1;
+  padding:8px;
+  border:1px solid #ccc;
+  border-radius:6px;
+  font-size:12px;
+}
+
+.share-row button{
+  background:#EC0043;
+  color:#fff;
+  border:none;
+  padding:8px 14px;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+#copyStatus{
+  font-size:11px;
+  color:green;
+  margin-top:4px;
 }
 
 .messages{
@@ -48,7 +88,7 @@ body{
   padding:10px;
   overflow-y:auto;
   display:flex;
-  flex-direction:column;   /* ✅ natural top flow */
+  flex-direction:column;
 }
 
 .msg{
@@ -57,7 +97,6 @@ body{
   border-radius:18px;
   max-width:75%;
   font-size:14px;
-  word-wrap:break-word;
 }
 
 .me{
@@ -92,14 +131,14 @@ body{
   border-top:1px solid #ddd;
 }
 
-input{
+.input-box input{
   flex:1;
   padding:12px;
   border:none;
   outline:none;
 }
 
-button{
+.input-box button{
   background:#EC0043;
   color:#fff;
   border:none;
@@ -113,8 +152,20 @@ button{
 
 <div class="chat-box">
   <div class="header">Private Chat</div>
+
+  <!-- SHARE LINK BOX -->
+  <div class="share-box" id="shareBox">
+    <small>🔐 Private Room Link</small>
+    <div class="share-row">
+      <input id="shareLink" readonly>
+      <button onclick="copyLink()">Copy</button>
+    </div>
+    <div id="copyStatus"></div>
+  </div>
+
   <div class="messages" id="messages"></div>
   <div class="status" id="status"></div>
+
   <div class="input-box">
     <input id="msg" placeholder="Type message..." oninput="typing(true)">
     <button onclick="sendMsg()">Send</button>
@@ -135,14 +186,14 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-/* ✅ STRONG USERNAME FIX */
+/* USERNAME */
 let username = localStorage.getItem('chat_name');
 while(!username || username.trim().length < 2){
-  username = prompt("Enter your name (min 2 chars)");
+  username = prompt("Enter your name");
 }
 localStorage.setItem('chat_name', username);
 
-/* ROOM LOGIC */
+/* ROOM */
 const params = new URLSearchParams(location.search);
 let room = params.get('room');
 
@@ -150,9 +201,11 @@ if(!room){
   room = Math.random().toString(36).substring(2,8);
   const pass = prompt('Set room password');
   db.ref('rooms/'+room).set({password:pass,users:0});
-  const link = location.origin+location.pathname+'?room='+room;
-  navigator.clipboard.writeText(link);
-  alert('Private link copied:\n'+link);
+
+  const link = location.origin + location.pathname + '?room=' + room;
+  document.getElementById('shareBox').style.display = 'block';
+  document.getElementById('shareLink').value = link;
+
   history.replaceState({},'',`?room=${room}`);
 }
 
@@ -162,22 +215,32 @@ const typingRef = db.ref('typing/'+room);
 
 roomRef.once('value',snap=>{
   if(!snap.exists()) return alert('Room not found');
-  const data=snap.val();
-  const entered=prompt('Enter room password');
-  if(entered!==data.password) return location.reload();
-  if(data.users>=2) return alert('Room full'),location.reload();
+  const data = snap.val();
+  const entered = prompt('Enter room password');
+  if(entered !== data.password) return location.reload();
+  if(data.users >= 2) return alert('Room full'), location.reload();
   roomRef.update({users:(data.users||0)+1});
 });
 
 window.addEventListener('beforeunload',()=>{
   roomRef.once('value',s=>{
-    if(s.exists()) roomRef.update({users:Math.max(0,(s.val().users||1)-1)})
+    if(s.exists())
+      roomRef.update({users:Math.max(0,(s.val().users||1)-1)});
   });
 });
 
+/* COPY FUNCTION */
+function copyLink(){
+  const input = document.getElementById('shareLink');
+  input.select();
+  input.setSelectionRange(0,99999);
+  document.execCommand("copy");
+  document.getElementById('copyStatus').innerText = "Link copied ✔";
+}
+
 /* CHAT */
 function sendMsg(){
-  const input=document.getElementById('msg');
+  const input = document.getElementById('msg');
   if(!input.value.trim()) return;
   chatRef.push({
     name:username,
@@ -192,7 +255,8 @@ chatRef.limitToLast(100).on('child_added',snap=>{
   const d=snap.val();
   const div=document.createElement('div');
   div.className='msg '+(d.name===username?'me':'other');
-  div.innerHTML=`<b>${d.name}</b><br>${d.text}<div class="time">${new Date(d.time).toLocaleTimeString()}</div>`;
+  div.innerHTML=`<b>${d.name}</b><br>${d.text}
+    <div class="time">${new Date(d.time).toLocaleTimeString()}</div>`;
   document.getElementById('messages').appendChild(div);
   div.scrollIntoView({behavior:'smooth'});
 });
