@@ -1,302 +1,277 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta charset="UTF-8">
+<!-- <meta name="viewport" content="width=device-width, initial-scale=1.0"> -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Modern Secure Private Chat</title>
 
-    <title>Private Chat</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+body{
+  font-family:Arial,sans-serif;
+  background:#f4f6f8;
+  margin:0;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  padding-top:20px;
+  height:100vh;
+}
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f6f8;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding-top: 20px;
-            height: 100vh;
-        }
+.chat-box{
+  width:100%;
+  max-width:420px;
+  background:#fff;
+  border-radius:12px;
+  box-shadow:0 15px 30px rgba(0,0,0,.15);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
 
-        .chat-box {
-            width: 100%;
-            max-width: 420px;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 15px 30px rgba(0, 0, 0, .15);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
+.header{
+  background:#EC0043;
+  color:#fff;
+  padding:15px;
+  text-align:center;
+  font-weight:bold;
+  font-size:16px;
+  position:sticky;
+  top:0;
+}
 
-        .header {
-            background: #EC0043;
-            color: #fff;
-            padding: 15px;
-            text-align: center;
-            font-weight: bold;
-        }
+.share-box{
+  padding:12px;
+  background:#fff4f7;
+  border-bottom:1px solid #eee;
+  display:none;
+}
 
-        .share-box {
-            padding: 12px;
-            background: #fff4f7;
-            border-bottom: 1px solid #eee;
-            display: none;
-        }
+.share-box small{
+  display:block;
+  font-weight:bold;
+  margin-bottom:6px;
+}
 
-        .share-row {
-            display: flex;
-            gap: 6px;
-        }
+.share-row{
+  display:flex;
+  gap:6px;
+}
 
-        .share-row input {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 12px;
-        }
+.share-row input{
+  flex:1;
+  padding:8px;
+  border:1px solid #ccc;
+  border-radius:6px;
+  font-size:12px;
+}
 
-        .share-row button {
-            background: #EC0043;
-            color: #fff;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-        }
+.share-row button{
+  background:#EC0043;
+  color:#fff;
+  border:none;
+  padding:8px 14px;
+  border-radius:6px;
+  cursor:pointer;
+}
 
-        .messages {
-            flex: 1;
-            padding: 10px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
+#copyStatus{
+  font-size:11px;
+  color:green;
+  margin-top:4px;
+}
 
-        .msg {
-            margin: 6px 0;
-            padding: 10px 14px;
-            border-radius: 18px;
-            max-width: 75%;
-        }
+.messages{
+  flex:1;
+  padding:10px;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+}
 
-        .me {
-            background: #EC0043;
-            color: #fff;
-            margin-left: auto
-        }
+.msg{
+  margin:6px 0;
+  padding:10px 14px;
+  border-radius:18px;
+  max-width:75%;
+  font-size:14px;
+}
 
-        .other {
-            background: #eee;
-            color: #000;
-            margin-right: auto
-        }
+.me{
+  background:#EC0043;
+  color:#fff;
+  margin-left:auto;
+  border-bottom-right-radius:4px;
+}
 
-        .time {
-            font-size: 10px;
-            opacity: .7;
-            text-align: right;
-        }
+.other{
+  background:#eee;
+  color:#000;
+  margin-right:auto;
+  border-bottom-left-radius:4px;
+}
 
-        .status {
-            font-size: 12px;
-            color: #666;
-            padding: 4px 10px;
-        }
+.time{
+  font-size:10px;
+  opacity:0.7;
+  text-align:right;
+  margin-top:4px;
+}
 
-        .input-box {
-            display: flex;
-            border-top: 1px solid #ddd;
-        }
+.status{
+  font-size:12px;
+  color:#666;
+  padding:4px 10px;
+}
 
-        .input-box input {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            outline: none;
-        }
+.input-box{
+  display:flex;
+  border-top:1px solid #ddd;
+}
 
-        .input-box button {
-            background: #EC0043;
-            color: #fff;
-            border: none;
-            padding: 0 20px;
-        }
-    </style>
+.input-box input{
+  flex:1;
+  padding:12px;
+  border:none;
+  outline:none;
+}
+
+.input-box button{
+  background:#EC0043;
+  color:#fff;
+  border:none;
+  padding:0 20px;
+  cursor:pointer;
+}
+</style>
 </head>
 
 <body>
 
-    <div class="chat-box">
-        <div class="header">Private Chat</div>
+<div class="chat-box">
+  <div class="header">Private Chat</div>
 
-        <div class="share-box" id="shareBox">
-            <div class="share-row">
-                <input id="shareLink" readonly>
-                <button onclick="copyLink()">Copy</button>
-            </div>
-        </div>
-
-        <div class="messages" id="messages"></div>
-        <div class="status" id="status"></div>
-
-        <div class="input-box">
-            <input id="msg" placeholder="Type message..." oninput="typing(true)">
-            <button onclick="sendMsg()">Send</button>
-        </div>
+  <!-- SHARE LINK BOX -->
+  <div class="share-box" id="shareBox">
+    <small>🔐 Private Room Link</small>
+    <div class="share-row">
+      <input id="shareLink" readonly>
+      <button onclick="copyLink()">Copy</button>
     </div>
+    <div id="copyStatus"></div>
+  </div>
 
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCXZLGPwvqCN4OeZCjwBQan63pbASeSw8Y",
-            authDomain: "chat-c504f.firebaseapp.com",
-            databaseURL: "https://chat-c504f-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "chat-c504f",
-            storageBucket: "chat-c504f.firebasestorage.app",
-            messagingSenderId: "550900239138",
-            appId: "1:550900239138:web:5b1d1aede8684f335f337b"
-        };
+  <div class="messages" id="messages"></div>
+  <div class="status" id="status"></div>
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+  <div class="input-box">
+    <input id="msg" placeholder="Type message..." oninput="typing(true)">
+    <button onclick="sendMsg()">Send</button>
+  </div>
+</div>
 
-        /* USERNAME */
-        const nameKey = "chat_name_" + room;
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCXZLGPwvqCN4OeZCjwBQan63pbASeSw8Y",
+  authDomain: "chat-c504f.firebaseapp.com",
+  databaseURL: "https://chat-c504f-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "chat-c504f",
+  storageBucket: "chat-c504f.firebasestorage.app",
+  messagingSenderId: "550900239138",
+  appId: "1:550900239138:web:5b1d1aede8684f335f337b"
+};
 
-        let username = sessionStorage.getItem(nameKey);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-        if (!username) {
-            username = prompt("Enter your name for this room");
-            while (!username || username.trim().length < 2) {
-                username = prompt("Name required (min 2 chars)");
-            }
-            sessionStorage.setItem(nameKey, username);
-        }
+/* USERNAME */
+let username = localStorage.getItem('chat_name');
+while(!username || username.trim().length < 2){
+  username = prompt("Enter your name");
+}
+localStorage.setItem('chat_name', username);
 
-        /* ROOM */
-        const params = new URLSearchParams(location.search);
-        let room = params.get('room');
+/* ROOM */
+const params = new URLSearchParams(location.search);
+let room = params.get('room');
 
-        if (!room) {
-            room = Math.random().toString(36).substring(2, 8);
-            const pass = prompt('Set room password');
-            db.ref('rooms/' + room).set({ password: pass });
+if(!room){
+  room = Math.random().toString(36).substring(2,8);
+  const pass = prompt('Set room password');
+  db.ref('rooms/'+room).set({password:pass,users:0});
 
-            const link = location.origin + location.pathname + '?room=' + room;
-            shareBox.style.display = 'block';
-            shareLink.value = link;
-            history.replaceState({}, '', `?room=${room}`);
-        }
+  const link = location.origin + location.pathname + '?room=' + room;
+  document.getElementById('shareBox').style.display = 'block';
+  document.getElementById('shareLink').value = link;
 
-        const chatRef = db.ref('messages/' + room);
-        const typingRef = db.ref('typing/' + room);
-        const presenceRoomRef = db.ref('presence/' + room);
+  history.replaceState({},'',`?room=${room}`);
+}
 
-        /* 🔥 PRESENCE + LAST SEEN */
-        const presenceRef = db.ref('presence/' + room + '/' + username);
-        const connectedRef = db.ref('.info/connected');
+const roomRef = db.ref('rooms/'+room);
+const chatRef = db.ref('messages/'+room);
+const typingRef = db.ref('typing/'+room);
 
-        connectedRef.on('value', snap => {
-            if (snap.val()) {
-                presenceRef.set({
-                    state: 'online',
-                    lastSeen: firebase.database.ServerValue.TIMESTAMP
-                });
-                presenceRef.onDisconnect().set({
-                    state: 'offline',
-                    lastSeen: firebase.database.ServerValue.TIMESTAMP
-                });
-            }
-        });
+roomRef.once('value',snap=>{
+  if(!snap.exists()) return alert('Room not found');
+  const data = snap.val();
+  const entered = prompt('Enter room password');
+  if(entered !== data.password) return location.reload();
+  if(data.users >= 2) return alert('Room full'), location.reload();
+  roomRef.update({users:(data.users||0)+1});
+});
 
-        /* ===== TYPING SYSTEM (SMART) ===== */
-        let typingTimer;
+window.addEventListener('beforeunload',()=>{
+  roomRef.once('value',s=>{
+    if(s.exists())
+      roomRef.update({users:Math.max(0,(s.val().users||1)-1)});
+  });
+});
 
-        function typing(isTyping) {
-            if (isTyping) {
-                typingRef.child(username).set(true);
-                clearTimeout(typingTimer);
-                typingTimer = setTimeout(() => {
-                    typingRef.child(username).remove();
-                }, 1500);
-            }
-        }
+/* COPY FUNCTION */
+function copyLink(){
+  const input = document.getElementById('shareLink');
+  input.select();
+  input.setSelectionRange(0,99999);
+  document.execCommand("copy");
+  document.getElementById('copyStatus').innerText = "Link copied ✔";
+}
 
-        /* remove typing on send */
-        function stopTyping() {
-            typingRef.child(username).remove();
-        }
+/* CHAT */
+function sendMsg(){
+  const input = document.getElementById('msg');
+  if(!input.value.trim()) return;
+  chatRef.push({
+    name:username,
+    text:input.value,
+    time:Date.now()
+  });
+  input.value='';
+  typing(false);
+}
 
-        /* STATUS HANDLER (typing > online > last seen) */
-        function updateStatus() {
-            Promise.all([
-                typingRef.once('value'),
-                presenceRoomRef.once('value')
-            ]).then(([typingSnap, presenceSnap]) => {
-                const typingUsers = typingSnap.val() || {};
-                const presenceUsers = presenceSnap.val() || {};
-
-                // typing first
-                for (let u in typingUsers) {
-                    if (u !== username) {
-                        status.innerText = u + " typing...";
-                        return;
-                    }
-                }
-
-                // online / last seen
-                for (let u in presenceUsers) {
-                    if (u !== username) {
-                        const d = presenceUsers[u];
-                        if (d.state === 'online') {
-                            status.innerText = u + " is online";
-                        } else {
-                            const mins = Math.floor((Date.now() - d.lastSeen) / 60000);
-                            status.innerText = "Last seen " + (mins < 1 ? "just now" : mins + " min ago");
-                        }
-                    }
-                }
-            });
-        }
-
-        typingRef.on('value', updateStatus);
-        presenceRoomRef.on('value', updateStatus);
-
-        /* COPY */
-        function copyLink() {
-            shareLink.select();
-            document.execCommand("copy");
-        }
-
-        /* CHAT */
-        function sendMsg() {
-            if (!msg.value.trim()) return;
-            chatRef.push({
-                name: username,
-                text: msg.value,
-                time: Date.now()
-            });
-            msg.value = '';
-            stopTyping();
-        }
-
-        chatRef.limitToLast(100).on('child_added', snap => {
-            const d = snap.val();
-            const div = document.createElement('div');
-            div.className = 'msg ' + (d.name === username ? 'me' : 'other');
-            div.innerHTML = `<b>${d.name}</b><br>${d.text}
+chatRef.limitToLast(100).on('child_added',snap=>{
+  const d=snap.val();
+  const div=document.createElement('div');
+  div.className='msg '+(d.name===username?'me':'other');
+  div.innerHTML=`<b>${d.name}</b><br>${d.text}
     <div class="time">${new Date(d.time).toLocaleTimeString()}</div>`;
-            messages.appendChild(div);
-            div.scrollIntoView({ behavior: 'smooth' });
-        });
-    </script>
+  document.getElementById('messages').appendChild(div);
+  div.scrollIntoView({behavior:'smooth'});
+});
 
+function typing(val){
+  typingRef.set(val?username:null);
+}
+
+typingRef.on('value',s=>{
+  document.getElementById('status').textContent =
+    s.val()?s.val()+" typing...":"";
+});
+</script>
 
 </body>
-
 </html>
+
