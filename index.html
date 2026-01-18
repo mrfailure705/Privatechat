@@ -170,13 +170,14 @@ if(!room){
   db.ref('rooms/'+room).set({password:pass});
 
   const link = location.origin + location.pathname + '?room=' + room;
-  document.getElementById('shareBox').style.display='block';
-  document.getElementById('shareLink').value=link;
+  shareBox.style.display='block';
+  shareLink.value=link;
   history.replaceState({},'',`?room=${room}`);
 }
 
 const chatRef = db.ref('messages/'+room);
 const typingRef = db.ref('typing/'+room);
+const presenceRoomRef = db.ref('presence/'+room);
 
 /* 🔥 PRESENCE + LAST SEEN */
 const presenceRef = db.ref('presence/'+room+'/'+username);
@@ -195,21 +196,58 @@ connectedRef.on('value',snap=>{
   }
 });
 
-/* SHOW STATUS */
-db.ref('presence/'+room).on('value',snap=>{
-  const users = snap.val() || {};
-  Object.keys(users).forEach(u=>{
-    if(u!==username){
-      const d = users[u];
-      if(d.state==='online'){
-        status.innerText = u + ' is online';
-      }else{
-        const mins = Math.floor((Date.now()-d.lastSeen)/60000);
-        status.innerText = 'Last seen ' + (mins<1?'just now':mins+' min ago');
+/* ===== TYPING SYSTEM (SMART) ===== */
+let typingTimer;
+
+function typing(isTyping){
+  if(isTyping){
+    typingRef.child(username).set(true);
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(()=>{
+      typingRef.child(username).remove();
+    },1500);
+  }
+}
+
+/* remove typing on send */
+function stopTyping(){
+  typingRef.child(username).remove();
+}
+
+/* STATUS HANDLER (typing > online > last seen) */
+function updateStatus(){
+  Promise.all([
+    typingRef.once('value'),
+    presenceRoomRef.once('value')
+  ]).then(([typingSnap, presenceSnap])=>{
+    const typingUsers = typingSnap.val() || {};
+    const presenceUsers = presenceSnap.val() || {};
+
+    // typing first
+    for(let u in typingUsers){
+      if(u !== username){
+        status.innerText = u + " typing...";
+        return;
+      }
+    }
+
+    // online / last seen
+    for(let u in presenceUsers){
+      if(u !== username){
+        const d = presenceUsers[u];
+        if(d.state === 'online'){
+          status.innerText = u + " is online";
+        }else{
+          const mins = Math.floor((Date.now()-d.lastSeen)/60000);
+          status.innerText = "Last seen " + (mins<1?"just now":mins+" min ago");
+        }
       }
     }
   });
-});
+}
+
+typingRef.on('value',updateStatus);
+presenceRoomRef.on('value',updateStatus);
 
 /* COPY */
 function copyLink(){
@@ -220,9 +258,13 @@ function copyLink(){
 /* CHAT */
 function sendMsg(){
   if(!msg.value.trim()) return;
-  chatRef.push({name:username,text:msg.value,time:Date.now()});
+  chatRef.push({
+    name:username,
+    text:msg.value,
+    time:Date.now()
+  });
   msg.value='';
-  typing(false);
+  stopTyping();
 }
 
 chatRef.limitToLast(100).on('child_added',snap=>{
@@ -234,15 +276,8 @@ chatRef.limitToLast(100).on('child_added',snap=>{
   messages.appendChild(div);
   div.scrollIntoView({behavior:'smooth'});
 });
-
-function typing(val){
-  typingRef.set(val?username:null);
-}
-
-typingRef.on('value',s=>{
-  if(s.val()) status.innerText = s.val()+" typing...";
-});
 </script>
+
 
 </body>
 </html>
